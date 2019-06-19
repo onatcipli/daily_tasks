@@ -1,6 +1,7 @@
 import 'package:daily_tasks/pages/home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -9,6 +10,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   FirebaseUser _firebaseUser;
+  GoogleSignIn _googleSignIn = GoogleSignIn();
   GoogleAuthProvider googleAuthProvider = GoogleAuthProvider();
   String email = '';
   String password = '';
@@ -60,9 +62,17 @@ class _LoginPageState extends State<LoginPage> {
         context,
         MaterialPageRoute(
             builder: (context) => HomePage(
-                  firebaseUser: _firebaseUser,
-                )),
+                firebaseUser: _firebaseUser,
+                googleSignInAccount: _googleSignIn.currentUser)),
         (Route<dynamic> route) => false);
+  }
+
+  void signInWithGoogle() {
+    _googleSignIn.signIn().then((GoogleSignInAccount googleUser) {
+      navigateToHomePage();
+      Scaffold.of(context)
+          .showSnackBar(SnackBar(content: Text('Signed In with Google!!')));
+    });
   }
 
   @override
@@ -137,7 +147,10 @@ class _LoginPageState extends State<LoginPage> {
                         ],
                       ),
                       OutlineButton(
-                          onPressed: () {}, child: Text('Google SignIn')),
+                          onPressed: () {
+                            signInWithGoogle();
+                          },
+                          child: Text('Google SignIn')),
                     ],
                   ),
                 ),
