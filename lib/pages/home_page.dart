@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:daily_tasks/models/task.dart';
 import 'package:daily_tasks/models/user_model.dart';
 import 'package:daily_tasks/pages/login_page.dart';
@@ -17,15 +18,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  FirebaseUser get firebaseUser => widget.firebaseUser;
+
+  GoogleSignInAccount get googleUser => widget.googleSignInAccount;
+
   List<Task> currentTasks = [];
 
   User currentUser;
 
   Task newTask;
-
-  FirebaseUser get firebaseUser => widget.firebaseUser;
-
-  GoogleSignInAccount get googleUser => widget.googleSignInAccount;
 
   void navigateToLoginPage() {
     Navigator.pushAndRemoveUntil(
@@ -39,7 +40,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void initState() {
-    currentTasks.add(task);
     currentUser = new User(
         uid: firebaseUser == null ? googleUser.id : firebaseUser.uid,
         tasks: currentTasks);
@@ -67,7 +67,7 @@ class _HomePageState extends State<HomePage> {
                         Scaffold.of(context).showSnackBar(SnackBar(
                           content: Text('Signed Out Succesfully!'),
                         ));
-//                              navigateToLoginPage();
+                        navigateToLoginPage();
                       });
                     }
                     if (googleUser != null) {
@@ -76,7 +76,7 @@ class _HomePageState extends State<HomePage> {
                         Scaffold.of(context).showSnackBar(SnackBar(
                           content: Text('Signed Out Succesfully!'),
                         ));
-//                              navigateToLoginPage();
+                        navigateToLoginPage();
                       });
                     }
                   })
@@ -106,7 +106,11 @@ class _HomePageState extends State<HomePage> {
                                     newTask = Task(
                                         createTime: DateTime.now(),
                                         description: description);
-                                    currentUser.tasks.add(newTask);
+                                    Firestore.instance
+                                        .collection('user')
+                                        .document(currentUser.uid)
+                                        .collection('tasks')
+                                        .add(newTask.toMap());
                                     Scaffold.of(context).showSnackBar(SnackBar(
                                         content: Row(
                                       children: <Widget>[
@@ -130,18 +134,50 @@ class _HomePageState extends State<HomePage> {
                     );
                   });
             }),
-        body: Builder(
-          builder: (context) => Column(
-                children: currentUser.tasks.map((Task task) {
-                  return GestureDetector(
-                      onLongPress: () {
-                        setState(() {
-                          currentUser.tasks.remove(task);
+        body: Builder(builder: (context) {
+          return Container(
+            child: StreamBuilder(
+                stream: Firestore.instance
+                    .collection('user')
+                    .document(currentUser.uid)
+                    .collection('tasks')
+                    .snapshots(),
+                builder: (context, AsyncSnapshot<QuerySnapshot> snapshots) {
+                  switch (snapshots.connectionState) {
+                    case ConnectionState.none:
+                    case ConnectionState.waiting:
+                      return Container(
+                        child: Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                      break;
+                    case ConnectionState.active:
+                    case ConnectionState.done:
+                      if (snapshots.data.documents.length != 0 &&
+                          snapshots.hasData) {
+                        currentUser.tasks = [];
+                        snapshots.data.documents
+                            .forEach((DocumentSnapshot snapshot) {
+                          currentUser.tasks.add(Task.fromSnapshot(snapshot));
                         });
-                      },
-                      child: BuildTask(task: task));
-                }).toList(),
-              ),
-        ));
+                        return Column(
+                          children: currentUser.tasks.map((Task task) {
+                            return GestureDetector(
+                                onLongPress: () {
+                                  setState(() {
+                                    currentUser.tasks.remove(task);
+                                  });
+                                },
+                                child: BuildTask(task: task));
+                          }).toList(),
+                        );
+                      } else {
+                        return Center(child: Text('Some Error happend'));
+                      }
+                  }
+                }),
+          );
+        }));
   }
 }

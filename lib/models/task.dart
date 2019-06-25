@@ -2,15 +2,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:meta/meta.dart';
 
 class Task {
+
   final DateTime createTime;
   final String description;
 
+
   bool isDone;
 
-  Task({@required this.createTime, @required this.description, this.isDone = false});
+  Task(
+      {@required this.createTime,
+      @required this.description,
+      this.isDone = false});
 
   Task.fromSnapshot(DocumentSnapshot snapshot)
-      : createTime = snapshot['createTime'],
+      : createTime = convertTimeStampToDateTime(snapshot['createTime']),
         description = snapshot['description'],
         isDone = snapshot['isDone'];
 
@@ -32,6 +37,19 @@ class Task {
         maps.forEach((Map _map) {
           tasks.add(Task.fromMap(_map));
         });
+    return tasks;
+  }
+
+  static DateTime convertTimeStampToDateTime(Timestamp timestamp){
+    return timestamp.toDate();
+  }
+
+  static List<Task> createListOfTasksFromListOfSnapshots(
+      List<DocumentSnapshot> snapshots) {
+    List<Task> tasks = [];
+    snapshots.forEach((DocumentSnapshot snapshot) {
+      tasks.add(Task.fromSnapshot(snapshot));
+    });
     return tasks;
   }
 }
